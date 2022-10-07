@@ -1,0 +1,123 @@
+---
+title: "ML Project - Week 4: WLE"
+author: "Aiman"
+date: "2022-10-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Weight Lifting Exercise Predictions
+## background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+## This report:
+In this report, we will describe how we were able to predict in an accurate way the manner the athletes performed the exercise (column "classe"). We will be splitting the training dataset into a training and test dataset, while we will be using the provided test set as a validation one. We will use cross-validation to keep the best model and comment the expected out of sample error.
+
+## Step by step
+
+### Data loading and pre-processing
+
+Firstly, we will load the data and cast the NAs, take a look to the datasets summaries and get rid of the first 7 column as we are not considering the time dimension in our processing.
+```{r load data, echo=T, results='hide' }
+library(caret)
+set.seed(412)
+
+training_data <- read.csv(
+  "~/Projects/ml_practice_week_4/pml-training.csv",
+  na.strings=c("NA","#DIV/0!","")
+  )
+validation_data <- read.csv(
+  "~/Projects/ml_practice_week_4/pml-testing.csv",
+  na.strings=c("NA","#DIV/0!","")
+  )
+
+training_data <- training_data[,-seq(1:7)]
+validation_data <- validation_data[,-seq(1:7)]
+
+summary(training_data)
+summary(validation_data)
+```
+
+While looking at the different features, we can see that some of the columns have a ratio > 90% of NAs, we will get rid of these columns. This will leave us with 52 predictors
+```{r preprocessing, echo=T, results='hide' }
+clnColumnIndex <- colSums(is.na(training_data))/nrow(training_data) < 0.9
+training_data <- training_data[,clnColumnIndex]
+validation_data <- validation_data[,clnColumnIndex]
+```
+
+Now, we will run the data normalization (scaling and centering). For that we will use the preProcess object.
+```{r data normalization, echo=T, results='hide'}
+classes <- training_data$classe
+preObj <-preProcess(training_data[,1:52],method=c('center', 'scale'))
+training_data <- predict(preObj, training_data[,1:52])
+training_data$classe <- as.factor(classes)
+
+val_id <- validation_data$problem_id
+validation_data <- predict(preObj,validation_data[,1:52])
+validation_data$problem_id <- val_id
+```
+
+
+Finally, we will split our training data into training and testing data
+
+```{r train/test split, echo=T, results='hide' }
+inTrain <- createDataPartition(training_data$classe, p=0.75)[[1]]
+training_data <- training_data[inTrain,]
+testing_data <- training_data[-inTrain,]
+```
+
+
+## Models training
+Here we will train 3 different models and compare their results.
+
+### decision tree
+```{r decision tree, echo=T, results='hide'}
+decisionTreeMod <- train(classe~., data=training_data, method='rpart')
+
+decisionTreePrediction <- predict(decisionTreeMod, testing_data)
+cmTree <- confusionMatrix(testing_data$classe, decisionTreePrediction)
+cmTree
+```
+
+### Random Forest
+```{r rf, echo=T, results='hide'}
+RFMod <- train(classe~., data=training_data, method='rf')
+
+RFPrediction <- predict(RFMod, testing_data)
+cmRF <- confusionMatrix(testing_data$classe, RFPrediction)
+cmRF
+```
+
+
+### GBM
+```{r GBM, echo=T, results='hide'}
+GBMMod <- train(classe~., data=training_data, method='gbm')
+
+
+
+GBMPrediction <- predict(GBMMod, testing_data)
+cmGBM <- confusionMatrix(testing_data$classe, GBMPrediction)
+cmGBM
+```
+
+### Comparison
+```{r Comparison, echo=T}
+AccuracyResults <- data.frame(
+  Model = c('decision tree', 'RF', 'GBM'),
+  Accuracy = rbind(cmTree$overall[1], cmRF$overall[1], cmGBM$overall[1])
+)
+print(AccuracyResults)
+```
+
+We can see that GBM and Random forest perform better on the testing dataset. We will keep the random forest as the best model for the prediction on the validation set.
+
+## Validation set
+
+```{r Validation set eval}
+RFValPrediction <- predict(RFMod, validation_data)
+RFValPrediction
+```
