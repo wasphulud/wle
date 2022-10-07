@@ -44,9 +44,9 @@ summary(validation_data)
 
 While looking at the different features, we can see that some of the columns have a ratio > 90% of NAs, we will get rid of these columns. This will leave us with 52 predictors
 ```{r preprocessing, echo=T, results='hide' }
-clnColumnIndex <- colSums(is.na(training_data))/nrow(training_data) < 0.9
-training_data <- training_data[,clnColumnIndex]
-validation_data <- validation_data[,clnColumnIndex]
+columnIndex <- colSums(is.na(training_data))/nrow(training_data) < 0.9
+training_data <- training_data[,columnIndex]
+validation_data <- validation_data[,columnIndex]
 ```
 
 Now, we will run the data normalization (scaling and centering). For that we will use the preProcess object.
@@ -106,11 +106,11 @@ cmGBM
 
 ### Comparison
 ```{r Comparison, echo=T}
-AccuracyResults <- data.frame(
+results <- data.frame(
   Model = c('decision tree', 'RF', 'GBM'),
   Accuracy = rbind(cmTree$overall[1], cmRF$overall[1], cmGBM$overall[1])
 )
-print(AccuracyResults)
+print(results)
 ```
 
 We can see that GBM and Random forest perform better on the testing dataset. We will keep the random forest as the best model for the prediction on the validation set.
